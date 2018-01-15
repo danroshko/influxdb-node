@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "standard",
+    "plugin:promise/recommended",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:node/recommended"
+  ],
+  "plugins": ["standard", "promise", "import", "node"]
+}
