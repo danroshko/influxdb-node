@@ -6,5 +6,8 @@
     "plugin:import/warnings",
     "plugin:node/recommended"
   ],
-  "plugins": ["standard", "promise", "import", "node"]
+  "plugins": ["standard", "promise", "import", "node"],
+  "rules": {
+    "promise/avoid-new": "off"
+  }
 }
