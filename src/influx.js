@@ -1,19 +1,35 @@
 const http = require('./http')
 
 class Influx {
+  /**
+   * Create new InfluxDB client
+   * @param {object} [config]
+   * @param {string} [config.db=test] database for writes
+   * @param {string} [config.rp=autogen] retention policy
+   * @param {string} [config.host="127.0.0.1"]
+   * @param {number} [config.port=8086]
+   * @param {number} [config.maxBufferSize=100] naximum number of buffered writes
+   * @param {number} [config.maxBufferTime=1000] maximum number of ms to buffer writes
+   */
   constructor (config = {}) {
-    this._configureDB(config.database)
-    this._configureRP(config.retentionPolicy)
-    this._configureBuffer(config.buffer)
+    this.db = config.db || 'test'
+    this.rp = config.rp || 'autogen'
+
+    this.host = config.host || '127.0.0.1'
+    this.port = config.port || 8086
+
+    this.maxBufferSize = config.maxBufferSize || 100
+    this.maxBufferTime = config.maxBufferTime || 1000
+
+    this.buffer = []
+    this.nextFlush = null
 
     this._writeConfig = {
-      path: `/write?db=${this.db.name}&rp=${this.rp.name}&precision=ms`,
+      path: `/write?db=${this.db}&rp=${this.rp}&precision=ms`,
       method: 'POST',
-      host: this.db.host,
-      port: this.db.port
+      host: this.host,
+      port: this.port
     }
-
-    this.ready = this._initDatabase()
   }
 
   /**
@@ -51,8 +67,8 @@ class Influx {
     return http.request({
       path: '/query?q=' + encodeURIComponent(query),
       method: 'GET',
-      host: this.db.host,
-      port: this.db.port
+      host: this.host,
+      port: this.port
     })
   }
 
@@ -60,14 +76,14 @@ class Influx {
    * Query data from InfluxDB
    * https://docs.influxdata.com/influxdb/v1.4/query_language/data_exploration
    * @param {string} query SELECT statement
-   * @param {boolean} [format] transform response from InfluxDB format to array of objects
+   * @param {boolean} [convert=true] transform response from InfluxDB format to an array of objects
    */
-  async query (query, format = true) {
+  async query (query, convert = true) {
     const config = {
-      path: '/query?' + encodeURI(`db=${this.db.name}&epoch=ms&q=` + query),
+      path: '/query?' + encodeURI(`db=${this.db}&epoch=ms&q=` + query),
       method: 'GET',
-      host: this.db.host,
-      port: this.db.port
+      host: this.host,
+      port: this.port
     }
 
     const response = await http.request(config)
@@ -76,20 +92,20 @@ class Influx {
       throw new Error(response.error)
     }
 
-    return this.formatQueryResponse(response, format)
+    return this.formatQueryResponse(response, convert)
   }
 
   /**
-   * Covert response from overly verbose InfluxDB format to array of objects
+   * Covert response from InfluxDB format to an array of objects
    * @param {object} response response from InfluxDB
-   * @param {boolean} [format]
+   * @param {boolean} [convert=true]
    */
-  formatQueryResponse (response, format = true) {
+  formatQueryResponse (response, convert = true) {
     const result = response.results[0]
     if (!result.series) return []
 
     const series = result.series[0]
-    if (!format) return series
+    if (!convert) return series
 
     const { columns } = series
     if (!columns || !columns.length) return []
@@ -103,62 +119,6 @@ class Influx {
 
       return obj
     })
-  }
-
-  _configureDB (config = {}) {
-    const defaultConfig = {
-      name: 'test',
-      host: '127.0.0.1',
-      port: 8086
-    }
-
-    this.db = { ...defaultConfig, ...config }
-  }
-
-  _configureRP (config = {}) {
-    const defaultConfig = {
-      name: 'test',
-      duration: 'INF',
-      replication: 1,
-      shardDuration: null,
-      default: true
-    }
-
-    this.rp = { ...defaultConfig, ...config }
-  }
-
-  _configureBuffer (config = {}) {
-    this.buffer = []
-    this.maxBufferSize = config.maxSize || 100
-    this.maxBufferTime = config.maxTime || 1000
-    this.nextFlush = null
-  }
-
-  async _initDatabase () {
-    await this._createDatabase()
-    return this._createRetentionPolicy()
-  }
-
-  _createDatabase () {
-    return this.execute(`CREATE DATABASE "${this.db.name}"`)
-  }
-
-  _createRetentionPolicy () {
-    let query = `
-      CREATE RETENTION POLICY "${this.rp.name}"
-      ON "${this.db.name}"
-      DURATION ${this.rp.duration}
-      REPLICATION ${this.rp.replication}`
-
-    if (this.rp.shardDuration) {
-      query += ` SHARD DURATION ${this.rp.shardDuration}`
-    }
-
-    if (this.rp.default) {
-      query += ' DEFAULT'
-    }
-
-    return this.execute(query)
   }
 
   _flushBuffer () {

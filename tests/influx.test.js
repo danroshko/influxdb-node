@@ -3,35 +3,27 @@ const Influx = require('../index')
 
 test('default config', async () => {
   const influx = new Influx()
-  return influx.ready
+  await influx.execute('CREATE DATABASE test')
+  return influx.writeImmediate('cpu,server=server1 value=0.31')
 })
 
 test('full config', async () => {
   const influx = new Influx({
-    database: {
-      name: 'mydb',
-      host: '127.0.0.1',
-      port: 8086
-    },
-    retentionPolicy: {
-      name: 'two_weeks',
-      duration: '2w',
-      replication: 1,
-      shardDuration: '1h',
-      default: true
-    },
-    buffer: {
-      maxSize: 1000,
-      maxTime: 1000
-    }
+    db: 'test',
+    rp: 'one_day',
+    maxBufferSize: 1000,
+    maxBufferTime: 1000
   })
 
-  return influx.ready
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
+  return influx.writeImmediate('cpu,server=server1 value=0.31')
 })
 
 test('writes', async () => {
   const influx = new Influx()
-  await influx.ready
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
 
   influx.write('cpu,server=server1 value=0.22')
   influx.write('cpu,server=server2 value=0.22')
@@ -44,7 +36,9 @@ test('write errors', async () => {
   expect.assertions(1)
 
   const influx = new Influx()
-  await influx.ready
+
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
 
   try {
     await influx.writeImmediate('fffff')
@@ -54,11 +48,13 @@ test('write errors', async () => {
 })
 
 test('query', async () => {
-  const influx = new Influx()
-  await influx.ready
+  const influx = new Influx({ rp: 'one_day' })
+
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
 
   await influx.writeImmediate('cpu,server=server7 value=0.77')
-  const query = 'SELECT "value" FROM test.cpu WHERE "server" = \'server7\''
+  const query = 'SELECT "value" FROM "one_day"."cpu" WHERE "server" = \'server7\''
 
   const res = await influx.query(query)
   expect(typeof res[0].time).toBe('number')
@@ -70,59 +66,58 @@ test('query', async () => {
 })
 
 test('buffer size', async () => {
-  const influx = new Influx({ buffer: { maxSize: 3, maxTime: 1e6 } })
-  await influx.ready
+  const influx = new Influx({ rp: 'one_day', maxBufferSize: 3, maxBufferTime: 1e6 })
+
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
 
   await influx.write('memory,server=server1 value=12')
   await sleep(5)
   await influx.write('memory,server=server1 value=13')
 
-  const res = await influx.query(`SELECT "value" FROM test.memory WHERE "server" = 'server1'`)
+  const res = await influx.query(`SELECT "value" FROM one_day.memory WHERE "server" = 'server1'`)
   expect(res.length).toBe(0)
 
   await influx.write('memory,server=server1 value=14')
   await sleep(5)
   await influx.write('memory,server=server1 value=15')
 
-  const res2 = await influx.query(`SELECT "value" FROM test.memory WHERE "server" = 'server1'`)
+  const res2 = await influx.query(`SELECT "value" FROM one_day.memory WHERE "server" = 'server1'`)
   expect(res2.length).toBe(4)
 })
 
 test('buffer time', async () => {
-  const influx = new Influx({ buffer: { maxSize: 1e3, maxTime: 1000 } })
-  await influx.ready
+  const influx = new Influx({ rp: 'one_day', maxBufferSize: 1e3, maxBufferTime: 1000 })
+
+  await influx.execute('CREATE DATABASE test')
+  await influx.execute('CREATE RETENTION POLICY one_day ON test DURATION 1d REPLICATION 1')
 
   await influx.write('disk,server=server1 value=240')
   await sleep(5)
   await influx.write('disk,server=server1 value=240')
 
-  const res = await influx.query(`SELECT "value" FROM test.disk WHERE "server" = 'server1'`)
+  const res = await influx.query(`SELECT "value" FROM one_day.disk WHERE "server" = 'server1'`)
   expect(res.length).toBe(0)
 
   await sleep(1000)
 
-  const res2 = await influx.query(`SELECT "value" FROM test.disk WHERE "server" = 'server1'`)
+  const res2 = await influx.query(`SELECT "value" FROM one_day.disk WHERE "server" = 'server1'`)
   expect(res2.length).toBe(2)
 })
 
 test('influx.execute', async () => {
   const influx = new Influx({
-    database: { name: 'mydb-2' },
-    retentionPolicy: {
-      name: 'one_day',
-      duration: '1d',
-      replication: 1,
-      shardDuration: '1h',
-      default: false
-    }
+    db: 'mydb-2',
+    rp: 'one_week'
   })
 
-  await influx.ready
+  await influx.execute('CREATE DATABASE "mydb-2"')
+  await influx.execute('CREATE RETENTION POLICY one_week ON "mydb-2" DURATION 1w REPLICATION 1')
 
   const response = await influx.execute('SHOW RETENTION POLICIES ON "mydb-2"')
   const result = influx.formatQueryResponse(response)
   expect(result[0].name).toEqual('autogen')
-  expect(result[1].name).toEqual('one_day')
+  expect(result[1].name).toEqual('one_week')
 })
 
 const sleep = ms => {
