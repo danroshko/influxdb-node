@@ -1,6 +1,6 @@
 {
   "name": "@danroshko/influxdb-node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Minimal InfluxDB client library for Node.js",
   "main": "index.js",
   "engines": {
