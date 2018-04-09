@@ -1,5 +1,7 @@
 const http = require('./http')
 
+const sleep = ms => new Promise(resolve => setInterval(resolve, ms))
+
 class Influx {
   /**
    * Create new InfluxDB client
@@ -10,6 +12,8 @@ class Influx {
    * @param {number} [config.port=8086]
    * @param {number} [config.maxBufferSize=100] naximum number of buffered writes
    * @param {number} [config.maxBufferTime=1000] maximum number of ms to buffer writes
+   * @param {number} [config.retries=2] number of retries when write operation fails
+   * @param {number} [config.retriesInterval=50] interval between retries in ms
    */
   constructor (config = {}) {
     this.db = config.db || 'test'
@@ -20,6 +24,8 @@ class Influx {
 
     this.maxBufferSize = config.maxBufferSize || 100
     this.maxBufferTime = config.maxBufferTime || 1000
+    this.retries = config.retries || 2
+    this.retriesInterval = config.retriesInterval || 50
 
     this.buffer = []
     this.nextFlush = null
@@ -53,8 +59,20 @@ class Influx {
    * Write point immediately to InfluxDB without buffering
    * @param {string} data point in the line protocol format
    */
-  writeImmediate (data) {
-    return http.request(this._writeConfig, data)
+  async writeImmediate (data) {
+    let error = null
+
+    for (let i = 0; i <= this.retries; i++) {
+      try {
+        const result = await http.request(this._writeConfig, data)
+        return result
+      } catch (err) {
+        error = err
+        await sleep(this.retriesInterval)
+      }
+    }
+
+    throw error
   }
 
   /**
@@ -128,7 +146,7 @@ class Influx {
     clearTimeout(this.nextFlush)
     this.nextFlush = null
 
-    http.request(this._writeConfig, data).catch(err => this.onError(err))
+    this.writeImmediate(data).catch(err => this.onError(err))
   }
 
   onError (error) {

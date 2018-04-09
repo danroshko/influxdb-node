@@ -5,6 +5,7 @@ Minimal InfluxDB client library for Node.js. Features:
 * execute arbitrary InfluxDB commands using Line Protocol and Query Language
 * buffer writes to InfluxDB
 * optionally transform responses from InfluxDb into more convenient arrays of objects
+* write retires
 
 ## Installation
 
@@ -24,7 +25,9 @@ const influx = new Influx({
   host: '127.0.0.1',
   port: 8086,
   maxBufferSize: 100,
-  maxBufferTime: 1000
+  maxBufferTime: 1000,
+  retries: 2,
+  retriesInterval: 50
 });
 
 influx
@@ -51,6 +54,6 @@ influx.query('SELECT "value" FROM test.cpu').then(results => {
 ## Run tests
 
 ```bash
-sudo docker run -it --rm --network="host" influxdb:1.4.2
+sudo docker run -it --rm --network="host" influxdb:1.5.1
 npm test
 ```
