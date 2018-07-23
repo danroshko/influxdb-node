@@ -1,16 +1,19 @@
 # Influxdb-node
 
+[![Build Status](https://travis-ci.org/danroshko/influxdb-node.svg?branch=master)](https://travis-ci.org/danroshko/influxdb-node)
+[![npm version](https://badge.fury.io/js/%40danroshko%2Finfluxdb-node.svg)](https://badge.fury.io/js/%40danroshko%2Finfluxdb-node)
+
 Minimal InfluxDB client library for Node.js. Features:
 
 * execute arbitrary InfluxDB commands using Line Protocol and Query Language
 * buffer writes to InfluxDB
-* optionally transform responses from InfluxDb into more convenient arrays of objects
+* optionally transform responses from InfluxDB into more convenient arrays of objects
 * write retires
 
 ## Installation
 
 ```bash
-npm i @danroshko/influx-node
+npm i @danroshko/influxdb-node
 ```
 
 ## Usage

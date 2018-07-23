@@ -1,0 +1,24 @@
+sudo: required
+
+language: node_js
+
+node_js:
+  - "8"
+  - "9"
+  - "10"
+
+services:
+  - docker
+
+cache:
+  directories:
+    - node_modules
+
+before_install:
+  - docker run -d --network="host" influxdb:1.5.1
+
+install:
+  - npm install
+
+script:
+  - npm run test
