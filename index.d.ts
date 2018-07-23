@@ -1,13 +1,13 @@
 export = Influx
 
 declare class Influx {
-  constructor(options: IOptions = {})
+  constructor(options?: IOptions)
 
   write(data: string): void
   writeImmediate(data: string): Promise<any>
   execute(query: string): Promise<any>
-  query(query: string, convert: boolean = true): Promise<any>
-  formatQueryResponse(response: any, convert: boolean = true): any
+  query(query: string, convert?: boolean): Promise<any>
+  formatQueryResponse(response: any, convert?: boolean): any
   onError(err: Error): void
 }
 
